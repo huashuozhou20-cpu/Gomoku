@@ -12,6 +12,28 @@ A cross-platform Gomoku game built in C++17. Play as the black stones against a 
 
 This project prefers **raylib** (via vcpkg when available) and will fall back to **SDL2** if raylib is not found in your environment. If neither library is available, a lightweight **X11 fallback** is used for Linux-only builds.
 
+## One-click Build & Run
+
+### macOS/Linux
+
+```bash
+chmod +x scripts/bootstrap.sh
+./scripts/bootstrap.sh
+```
+
+### Windows (PowerShell)
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\\scripts\\bootstrap.ps1
+```
+
+**Prerequisites:** Git, CMake, and a C++ compiler (MSVC, clang, or GCC). The bootstrap scripts will try to install missing prerequisites where possible.
+
+**Troubleshooting**
+- **Windows cl.exe missing:** Install Visual Studio Build Tools with the C++ workload or run from the Developer PowerShell for VS.
+- **PowerShell execution policy:** Use `-ExecutionPolicy Bypass` or set `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
+- **vcpkg install failures:** Check your network/proxy settings and re-run the script.
+
 ### Option A: vcpkg + raylib (recommended)
 
 ```bash

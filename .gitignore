@@ -17,6 +17,7 @@ vcpkg_installed/
 .vcpkg-root/
 vcpkg/buildtrees/
 vcpkg/packages/
+vcpkg/downloads/
 *.exe
 *.pdb
 *.dSYM
