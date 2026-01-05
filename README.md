@@ -59,7 +59,7 @@ cmake --build build
 ### Configure, build, run
 
 1. Open the repo in VS Code.
-2. Run the **Configure** task (sets up the build directory with the vcpkg toolchain).
+2. Run the **Setup** task (clones and bootstraps vcpkg, installs `raylib`, and configures CMake).
 3. Run **Build**.
 4. Run **Run** to launch the game.
 
@@ -71,7 +71,9 @@ cmake --build build
 
 - **Missing compiler:** Install a C++ compiler (MSVC, clang, or GCC).
 - **CMake not installed:** Install CMake and ensure it is on your PATH.
+- **vcpkg bootstrap issues:** Ensure Git is installed and you have access to GitHub, then re-run **Setup**.
 - **Windows build output path differences:** Some generators output to `build/Debug/gomoku.exe` while others use `build/gomoku.exe`. Use the matching debug configuration in `launch.json`.
+- **PowerShell execution policy:** If scripts are blocked, run PowerShell as admin and use `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, or run tasks with `-ExecutionPolicy Bypass`.
 
 ## Gameplay Rules
 
