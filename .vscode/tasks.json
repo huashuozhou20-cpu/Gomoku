@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Configure",
+      "type": "shell",
+      "command": "cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake",
+      "problemMatcher": [],
+      "windows": {
+        "command": "cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "options": {
+          "shell": {
+            "executable": "powershell"
+          }
+        }
+      }
+    },
+    {
+      "label": "Build",
+      "type": "shell",
+      "command": "cmake --build build",
+      "dependsOn": "Configure",
+      "problemMatcher": []
+    },
+    {
+      "label": "Run",
+      "type": "shell",
+      "command": "./scripts/run.sh",
+      "dependsOn": "Build",
+      "problemMatcher": [],
+      "windows": {
+        "command": ".\\scripts\\run.ps1",
+        "options": {
+          "shell": {
+            "executable": "powershell"
+          }
+        }
+      }
+    }
+  ]
+}

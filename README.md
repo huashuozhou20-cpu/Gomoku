@@ -49,6 +49,30 @@ cmake --build build
 ./build/gomoku
 ```
 
+## VS Code Quick Start
+
+### Required extensions
+
+- **C/C++** (ms-vscode.cpptools)
+- **CMake Tools** (ms-vscode.cmake-tools)
+
+### Configure, build, run
+
+1. Open the repo in VS Code.
+2. Run the **Configure** task (sets up the build directory with the vcpkg toolchain).
+3. Run **Build**.
+4. Run **Run** to launch the game.
+
+### Debug
+
+- Press **F5** to debug using the same build output as the Run task.
+
+### Common issues
+
+- **Missing compiler:** Install a C++ compiler (MSVC, clang, or GCC).
+- **CMake not installed:** Install CMake and ensure it is on your PATH.
+- **Windows build output path differences:** Some generators output to `build/Debug/gomoku.exe` while others use `build/gomoku.exe`. Use the matching debug configuration in `launch.json`.
+
 ## Gameplay Rules
 
 - Standard Gomoku rules: five in a row (horizontal, vertical, or diagonal) wins.
