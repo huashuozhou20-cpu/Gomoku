@@ -1,0 +1,15 @@
+/build/
+/out/
+/.cache/
+*.user
+*.user.*
+*.swp
+*.swo
+*.log
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+compile_commands.json
+vcpkg_installed/
+.vcpkg-root/
