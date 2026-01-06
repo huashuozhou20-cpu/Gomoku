@@ -47,11 +47,20 @@ if (Test-Path "vcpkg.json") {
 Write-Host "Installing dependency: $dependency"
 .\vcpkg\vcpkg install $dependency
 
-cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=.\vcpkg\scripts\buildsystems\vcpkg.cmake
-cmake --build build
+if (Test-Path "build" -PathType Leaf) {
+  Remove-Item "build" -Force
+}
+
+if (-not (Test-Path "build" -PathType Container)) {
+  New-Item -ItemType Directory -Path "build" | Out-Null
+}
+
+cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=.\vcpkg\scripts\buildsystems\vcpkg.cmake
+cmake --build build --config Debug
 
 $debugExe = Join-Path "build" "Debug\gomoku.exe"
-$releaseExe = Join-Path "build" "gomoku.exe"
+$releaseExe = Join-Path "build" "Release\gomoku.exe"
+$singleConfigExe = Join-Path "build" "gomoku.exe"
 
 if (Test-Path $debugExe) {
   & $debugExe
@@ -60,6 +69,11 @@ if (Test-Path $debugExe) {
 
 if (Test-Path $releaseExe) {
   & $releaseExe
+  exit $LASTEXITCODE
+}
+
+if (Test-Path $singleConfigExe) {
+  & $singleConfigExe
   exit $LASTEXITCODE
 }
 
