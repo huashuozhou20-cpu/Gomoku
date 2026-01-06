@@ -1,0 +1,86 @@
+name: build-release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            preset: windows-msvc-release
+            artifact: gomoku-windows.zip
+          - os: macos-latest
+            preset: macos-release
+            artifact: gomoku-macos.zip
+          - os: ubuntu-latest
+            preset: linux-release
+            artifact: gomoku-linux.zip
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Clone vcpkg
+        run: git clone https://github.com/microsoft/vcpkg.git
+
+      - name: Bootstrap vcpkg (Windows)
+        if: runner.os == 'Windows'
+        run: .\vcpkg\bootstrap-vcpkg.bat
+
+      - name: Bootstrap vcpkg (macOS/Linux)
+        if: runner.os != 'Windows'
+        run: ./vcpkg/bootstrap-vcpkg.sh
+
+      - name: Configure
+        run: cmake --preset ${{ matrix.preset }}
+
+      - name: Build
+        run: cmake --build --preset ${{ matrix.preset }}
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $exe = "build/${{ matrix.preset }}/gomoku.exe"
+          if (-not (Test-Path $exe)) { throw "Binary not found: $exe" }
+          cmake -E tar cfv ${{ matrix.artifact }} --format=zip $exe
+
+      - name: Package (macOS/Linux)
+        if: runner.os != 'Windows'
+        run: |
+          exe="build/${{ matrix.preset }}/gomoku"
+          if [ ! -f "$exe" ]; then
+            echo "Binary not found: $exe" >&2
+            exit 1
+          fi
+          cmake -E tar cfv ${{ matrix.artifact }} --format=zip "$exe"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/gomoku-windows.zip/gomoku-windows.zip
+            dist/gomoku-macos.zip/gomoku-macos.zip
+            dist/gomoku-linux.zip/gomoku-linux.zip
