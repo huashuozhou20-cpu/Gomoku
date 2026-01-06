@@ -36,9 +36,16 @@ $env:VCPKG_ROOT = (Resolve-Path ".\vcpkg").Path
 
 $preset = "windows-msvc-debug"
 $buildDir = Join-Path "build" $preset
+$cachePath = Join-Path $buildDir "CMakeCache.txt"
 
 Write-Host "Configuring with preset: $preset"
-cmake --preset $preset
+$configureOutput = cmake --preset $preset 2>&1
+$configureOutput | Write-Host
+
+if (-not (Test-Path $cachePath)) {
+  Write-ErrorAndExit "CMake cache not found at $cachePath. Configure output above."
+}
+
 cmake --build --preset $preset
 
 $exePath = Join-Path $buildDir "gomoku.exe"

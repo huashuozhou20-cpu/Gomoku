@@ -10,6 +10,7 @@
       "name": "windows-msvc-debug",
       "displayName": "Windows MSVC Debug",
       "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
       "binaryDir": "${sourceDir}/build/windows-msvc-debug",
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake"
@@ -19,6 +20,7 @@
       "name": "windows-msvc-release",
       "displayName": "Windows MSVC Release",
       "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
       "binaryDir": "${sourceDir}/build/windows-msvc-release",
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake"
