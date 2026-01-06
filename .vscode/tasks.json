@@ -18,22 +18,42 @@
     {
       "label": "Configure",
       "type": "shell",
-      "command": "cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake",
-      "dependsOn": "Setup",
-      "problemMatcher": []
+      "command": "cmake --preset linux-release",
+      "problemMatcher": [],
+      "windows": {
+        "command": "cmake --preset windows-msvc-debug",
+        "options": {
+          "shell": {
+            "executable": "powershell"
+          }
+        }
+      },
+      "osx": {
+        "command": "cmake --preset macos-release"
+      }
     },
     {
       "label": "Build",
       "type": "shell",
-      "command": "cmake --build build",
+      "command": "cmake --build --preset linux-release",
       "dependsOn": "Configure",
-      "problemMatcher": []
+      "problemMatcher": [],
+      "windows": {
+        "command": "cmake --build --preset windows-msvc-debug",
+        "options": {
+          "shell": {
+            "executable": "powershell"
+          }
+        }
+      },
+      "osx": {
+        "command": "cmake --build --preset macos-release"
+      }
     },
     {
       "label": "Run",
       "type": "shell",
       "command": "./scripts/run.sh",
-      "dependsOn": "Build",
       "problemMatcher": [],
       "windows": {
         "command": ".\\scripts\\run.ps1",

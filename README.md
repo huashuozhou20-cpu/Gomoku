@@ -8,68 +8,27 @@ A cross-platform Gomoku game built in C++17. Play as the black stones against a 
 - **R:** restart the game.
 - **Restart button (raylib build):** click the on-screen button to reset.
 
-## How to Build
+## Download & Run (Recommended)
 
-This project prefers **raylib** (via vcpkg when available) and will fall back to **SDL2** if raylib is not found in your environment. If neither library is available, a lightweight **X11 fallback** is used for Linux-only builds.
+1. Download the latest release for your OS from **GitHub Releases**: https://github.com/<your-org-or-user>/Gomoku/releases
+2. Unzip the archive.
+3. Run the `gomoku` binary (`gomoku.exe` on Windows).
 
-## One-click Build & Run
-
-### macOS/Linux
-
-```bash
-chmod +x scripts/bootstrap.sh
-./scripts/bootstrap.sh
-```
+## Build from Source (Developers)
 
 ### Windows (PowerShell)
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\\scripts\\bootstrap.ps1
+powershell -ExecutionPolicy Bypass -File .\\scripts\\run.ps1
 ```
 
-**Prerequisites:** Git, CMake, and a C++ compiler (MSVC, clang, or GCC). The bootstrap scripts will try to install missing prerequisites where possible.
-
-**Troubleshooting**
-- **Windows cl.exe missing:** Install Visual Studio Build Tools with the C++ workload or run from the Developer PowerShell for VS.
-- **PowerShell execution policy:** Use `-ExecutionPolicy Bypass` or set `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
-- **vcpkg install failures:** Check your network/proxy settings and re-run the script.
-
-### Option A: vcpkg + raylib (recommended)
+### macOS/Linux
 
 ```bash
-# Install dependencies
-vcpkg install raylib
-
-# Configure & build
-cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=[path-to-vcpkg]/scripts/buildsystems/vcpkg.cmake
-cmake --build build
+./scripts/run.sh
 ```
 
-### Option B: vcpkg + SDL2 (fallback)
-
-```bash
-# Install dependencies
-vcpkg install sdl2
-
-# Configure & build with SDL2 explicitly
-cmake -S . -B build -DUSE_SDL2=ON -DCMAKE_TOOLCHAIN_FILE=[path-to-vcpkg]/scripts/buildsystems/vcpkg.cmake
-cmake --build build
-```
-
-### Option C: Linux X11 fallback (no external packages)
-
-```bash
-cmake -S . -B build
-cmake --build build
-```
-
-> The X11 fallback is intended for restricted environments where vcpkg downloads are blocked. It still provides a full graphical window and UI but is Linux-specific.
-
-### Run
-
-```bash
-./build/gomoku
-```
+The run scripts will clone/bootstraps **vcpkg**, configure CMake presets, build, and run the game.
 
 ## VS Code Quick Start
 
@@ -81,21 +40,20 @@ cmake --build build
 ### Configure, build, run
 
 1. Open the repo in VS Code.
-2. Run the **Setup** task (clones and bootstraps vcpkg, installs `raylib`, and configures CMake).
-3. Run **Build**.
-4. Run **Run** to launch the game.
+2. Run **Run** (this uses the one-click script).
+3. Or run **Configure** then **Build** if you want separate steps.
 
 ### Debug
 
 - Press **F5** to debug using the same build output as the Run task.
 
-### Common issues
+## Troubleshooting
 
-- **Missing compiler:** Install a C++ compiler (MSVC, clang, or GCC).
-- **CMake not installed:** Install CMake and ensure it is on your PATH.
-- **vcpkg bootstrap issues:** Ensure Git is installed and you have access to GitHub, then re-run **Setup**.
-- **Windows build output path differences:** Some generators output to `build/Debug/gomoku.exe` while others use `build/gomoku.exe`. Use the matching debug configuration in `launch.json`.
-- **PowerShell execution policy:** If scripts are blocked, run PowerShell as admin and use `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, or run tasks with `-ExecutionPolicy Bypass`.
+- **Windows:** Install Visual Studio Build Tools with the C++ workload (or use Developer PowerShell for VS).
+- **macOS:** Run `xcode-select --install`.
+- **Linux:** `sudo apt-get install build-essential cmake` (or your distro equivalent).
+- **PowerShell execution policy:** Use `-ExecutionPolicy Bypass` or set `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
+- **vcpkg install failures:** Check your network/proxy settings and re-run the script.
 
 ## Gameplay Rules
 
@@ -104,18 +62,8 @@ cmake --build build
 
 ## Dependencies
 
-- **raylib** (preferred) for graphics and input.
-- **SDL2** is used automatically if raylib is not available (or when `USE_SDL2=ON`).
-- **X11** fallback is used when neither raylib nor SDL2 is available.
-- CMake 3.16+ and a C++17 compiler.
-
-## Troubleshooting
-
-- **raylib not found:** ensure vcpkg is installed and the toolchain file is passed to CMake.
-- **SDL2 linker errors:** confirm you installed `sdl2` via vcpkg and are using `-DUSE_SDL2=ON`.
-- **X11 build errors (Linux):** install X11 development headers (e.g., `libx11-dev`).
-- **macOS framework errors:** make sure you have Xcode command-line tools installed (`xcode-select --install`).
-- **Black window on Linux:** ensure your system has OpenGL development packages installed (e.g., `mesa-common-dev` / `libgl1-mesa-dev`).
+- **raylib** via vcpkg (manifest mode).
+- CMake 3.23+ and a C++17 compiler.
 
 ## Project Structure
 

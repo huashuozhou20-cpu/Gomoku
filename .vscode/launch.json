@@ -2,10 +2,10 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug Gomoku (Linux/macOS)",
+      "name": "Debug Gomoku (Windows MSVC)",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/build/gomoku",
+      "program": "${workspaceFolder}\\build\\windows-msvc-debug\\gomoku.exe",
       "args": [],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
@@ -15,23 +15,23 @@
       "MIMode": "gdb"
     },
     {
-      "name": "Debug Gomoku (Windows - MSVC Debug)",
+      "name": "Debug Gomoku (macOS)",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}\\build\\Debug\\gomoku.exe",
+      "program": "${workspaceFolder}/build/macos-release/gomoku",
       "args": [],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "environment": [],
       "externalConsole": false,
       "preLaunchTask": "Build",
-      "MIMode": "gdb"
+      "MIMode": "lldb"
     },
     {
-      "name": "Debug Gomoku (Windows - single-config)",
+      "name": "Debug Gomoku (Linux)",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}\\build\\gomoku.exe",
+      "program": "${workspaceFolder}/build/linux-release/gomoku",
       "args": [],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
