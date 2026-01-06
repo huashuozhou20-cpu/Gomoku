@@ -1,0 +1,68 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Setup",
+      "type": "shell",
+      "command": "./scripts/setup.sh",
+      "problemMatcher": [],
+      "windows": {
+        "command": ".\\scripts\\setup.ps1",
+        "options": {
+          "shell": {
+            "executable": "powershell"
+          }
+        }
+      }
+    },
+    {
+      "label": "Configure",
+      "type": "shell",
+      "command": "cmake --preset linux-release",
+      "problemMatcher": [],
+      "windows": {
+        "command": "cmake --preset windows-msvc-debug",
+        "options": {
+          "shell": {
+            "executable": "powershell"
+          }
+        }
+      },
+      "osx": {
+        "command": "cmake --preset macos-release"
+      }
+    },
+    {
+      "label": "Build",
+      "type": "shell",
+      "command": "cmake --build --preset linux-release",
+      "dependsOn": "Configure",
+      "problemMatcher": [],
+      "windows": {
+        "command": "cmake --build --preset windows-msvc-debug",
+        "options": {
+          "shell": {
+            "executable": "powershell"
+          }
+        }
+      },
+      "osx": {
+        "command": "cmake --build --preset macos-release"
+      }
+    },
+    {
+      "label": "Run",
+      "type": "shell",
+      "command": "./scripts/run.sh",
+      "problemMatcher": [],
+      "windows": {
+        "command": ".\\scripts\\run.ps1",
+        "options": {
+          "shell": {
+            "executable": "powershell"
+          }
+        }
+      }
+    }
+  ]
+}
