@@ -9,9 +9,37 @@ function Write-ErrorAndExit($message) {
   exit 1
 }
 
-$cmakeCommand = Get-Command cmake -ErrorAction SilentlyContinue
-if (-not $cmakeCommand) {
-  Write-ErrorAndExit "CMake not found. Install CMake from https://cmake.org/download/ and re-run."
+function Get-VsCmakePath {
+  $candidateRoots = @()
+  if ($env:VSINSTALLDIR) {
+    $candidateRoots += $env:VSINSTALLDIR
+  } else {
+    $candidateRoots += "C:\Program Files\Microsoft Visual Studio"
+    $candidateRoots += "C:\Program Files (x86)\Microsoft Visual Studio"
+  }
+
+  foreach ($root in $candidateRoots) {
+    $vsCmakePath = Join-Path $root "Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+    if (Test-Path $vsCmakePath) {
+      return $vsCmakePath
+    }
+
+    if (Test-Path $root) {
+      $found = Get-ChildItem -Path $root -Filter cmake.exe -File -Recurse -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -match "CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake\.exe$" } |
+        Select-Object -First 1
+      if ($found) {
+        return $found.FullName
+      }
+    }
+  }
+
+  return $null
+}
+
+$cmakePath = Get-VsCmakePath
+if (-not $cmakePath) {
+  Write-ErrorAndExit "Visual Studio bundled CMake not found. Ensure Visual Studio is installed and VSINSTALLDIR is set."
 }
 
 if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
@@ -21,10 +49,10 @@ if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
 $buildDir = Join-Path $repoRoot "build"
 
 Write-Host "Configuring CMake (Release)..."
-& $cmakeCommand.Path -S $repoRoot -B $buildDir -G "Visual Studio 17 2022" -A x64
+& $cmakePath -S $repoRoot -B $buildDir -G "Visual Studio 17 2022" -A x64
 
 Write-Host "Building (Release)..."
-& $cmakeCommand.Path --build $buildDir --config Release
+& $cmakePath --build $buildDir --config Release
 
 $exePath = Join-Path $buildDir "Release\gomoku.exe"
 if (Test-Path $exePath) {
