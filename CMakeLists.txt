@@ -1,16 +1,58 @@
 cmake_minimum_required(VERSION 3.16)
 project(Gomoku LANGUAGES CXX)
 
-if (NOT WIN32)
-    message(FATAL_ERROR "This project is Windows-only and requires the MSVC toolchain.")
-endif()
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_executable(gomoku WIN32
-    src/win32_main.cpp
-    src/gomoku.cpp
-    src/gomoku_ai.cpp
+option(USE_SDL2 "Build with SDL2 instead of raylib" OFF)
+
+set(GOMOKU_SOURCES
+    src/game.cpp
 )
 
-target_compile_features(gomoku PRIVATE cxx_std_17)
+if (USE_SDL2)
+    find_package(SDL2 CONFIG REQUIRED)
+    add_executable(gomoku ${GOMOKU_SOURCES} src/main_sdl2.cpp)
+    target_link_libraries(gomoku PRIVATE SDL2::SDL2 SDL2::SDL2main)
+    target_compile_definitions(gomoku PRIVATE USE_SDL2)
+else()
+    if (WIN32)
+        add_executable(gomoku ${GOMOKU_SOURCES} src/main_raylib.cpp)
+        include_directories(${CMAKE_CURRENT_LIST_DIR}/third_party/raylib/include)
+        target_link_libraries(gomoku PRIVATE
+            ${CMAKE_CURRENT_LIST_DIR}/third_party/raylib/lib/raylib.lib
+            winmm
+            gdi32
+            user32
+            shell32
+            ole32
+        )
+        add_custom_command(TARGET gomoku POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ${CMAKE_CURRENT_LIST_DIR}/third_party/raylib/bin/raylib.dll
+                $<TARGET_FILE_DIR:gomoku>
+        )
+    else()
+        find_package(raylib QUIET)
+        if (raylib_FOUND)
+            add_executable(gomoku ${GOMOKU_SOURCES} src/main_raylib.cpp)
+            target_link_libraries(gomoku PRIVATE raylib)
+        else()
+            find_package(SDL2 CONFIG QUIET)
+            if (SDL2_FOUND)
+                add_executable(gomoku ${GOMOKU_SOURCES} src/main_sdl2.cpp)
+                target_link_libraries(gomoku PRIVATE SDL2::SDL2 SDL2::SDL2main)
+                target_compile_definitions(gomoku PRIVATE USE_SDL2)
+            else()
+                find_package(X11 REQUIRED)
+                add_executable(gomoku ${GOMOKU_SOURCES} src/main_x11.cpp)
+                target_link_libraries(gomoku PRIVATE X11::X11)
+                target_compile_definitions(gomoku PRIVATE USE_X11_FALLBACK)
+            endif()
+        endif()
+    endif()
+endif()
 
-target_link_libraries(gomoku PRIVATE user32 gdi32)
+if (APPLE)
+    target_link_libraries(gomoku PRIVATE "-framework IOKit" "-framework Cocoa" "-framework OpenGL")
+endif()
