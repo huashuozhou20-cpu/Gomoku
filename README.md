@@ -51,6 +51,13 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run.ps1
 - **Start** begins a match, **Quit** exits.
 - After a match ends, use **Play Again** or **Back to Menu**.
 
+## Menu & Match Flow
+
+- Choose who moves first (Player or AI).
+- Select AI difficulty (Easy/Normal/Hard).
+- **Start** begins a match, **Quit** exits.
+- After a match ends, use **Play Again** or **Back to Menu**.
+
 ## Gameplay Rules
 
 - 15x15 board, first to five in a row wins.

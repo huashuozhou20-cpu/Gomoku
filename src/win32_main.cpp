@@ -160,6 +160,70 @@ void ConfigurePlayers(GameState &state) {
     }
 }
 
+RECT MakeCenteredRect(const RECT &client, int center_y, int width, int height) {
+    int center_x = (client.left + client.right) / 2;
+    RECT rect{
+        center_x - width / 2,
+        center_y - height / 2,
+        center_x + width / 2,
+        center_y + height / 2
+    };
+    return rect;
+}
+
+struct MenuLayout {
+    RECT player_first{};
+    RECT ai_first{};
+    RECT easy{};
+    RECT normal{};
+    RECT hard{};
+    RECT start{};
+    RECT quit{};
+};
+
+struct GameOverLayout {
+    RECT play_again{};
+    RECT back_to_menu{};
+};
+
+MenuLayout BuildMenuLayout(const RECT &client) {
+    MenuLayout layout{};
+    int center_x = (client.left + client.right) / 2;
+    int y = kMargin + 40;
+    layout.player_first = RECT{center_x - kOptionWidth - 10, y, center_x - 10, y + kOptionHeight};
+    layout.ai_first = RECT{center_x + 10, y, center_x + kOptionWidth + 10, y + kOptionHeight};
+
+    y += kOptionHeight + 40;
+    layout.easy = RECT{center_x - kOptionWidth - 10, y, center_x - 10, y + kOptionHeight};
+    layout.normal = RECT{center_x + 10, y, center_x + kOptionWidth + 10, y + kOptionHeight};
+    layout.hard = RECT{center_x - kOptionWidth / 2, y + kOptionHeight + 10,
+                       center_x + kOptionWidth / 2, y + kOptionHeight + 10 + kOptionHeight};
+
+    y += kOptionHeight * 2 + 60;
+    layout.start = MakeCenteredRect(client, y, kButtonWidth, kButtonHeight);
+    layout.quit = MakeCenteredRect(client, y + kButtonHeight + 20, kButtonWidth, kButtonHeight);
+
+    return layout;
+}
+
+GameOverLayout BuildGameOverLayout(const RECT &client) {
+    GameOverLayout layout{};
+    int center_y = (client.top + client.bottom) / 2 + 40;
+    layout.play_again = MakeCenteredRect(client, center_y, kButtonWidth, kButtonHeight);
+    layout.back_to_menu = MakeCenteredRect(client, center_y + kButtonHeight + 16, kButtonWidth, kButtonHeight);
+    return layout;
+}
+
+void ConfigurePlayers(GameState &state) {
+    if (state.player_first) {
+        state.human_player = GomokuGame::kBlack;
+        state.ai_player = GomokuGame::kWhite;
+    } else {
+        state.human_player = GomokuGame::kWhite;
+        state.ai_player = GomokuGame::kBlack;
+    }
+}
+
 void ResetGame(GameState &state, HWND hwnd) {
     state.game.reset();
     ConfigurePlayers(state);
