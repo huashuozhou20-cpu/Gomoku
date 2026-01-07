@@ -13,9 +13,9 @@ namespace {
 constexpr int kCellSize = 32;
 constexpr int kMargin = 40;
 constexpr int kAiTimerId = 1;
-constexpr int kBlinkTimerId = 2;
+constexpr int kGlowTimerId = 2;
 constexpr int kPulseTimerId = 3;
-constexpr UINT kBlinkIntervalMs = 300;
+constexpr UINT kGlowIntervalMs = 33;
 constexpr UINT kPulseIntervalMs = 30;
 constexpr int kPulseFrames = 7;
 constexpr int kWindowWidth = 700;
@@ -37,7 +37,7 @@ struct GameState {
     int winner = GomokuGame::kEmpty;
     std::optional<WinLine> win_line;
     std::vector<POINT> win_cells;
-    bool win_blink_on = true;
+    float anim_phase = 0.0f;
     int pulse_frame = 0;
     int pulse_total = 0;
     bool ai_pending = false;
@@ -168,12 +168,12 @@ void ResetGame(GameState &state, HWND hwnd) {
     state.winner = GomokuGame::kEmpty;
     state.win_line.reset();
     state.win_cells.clear();
-    state.win_blink_on = true;
+    state.anim_phase = 0.0f;
     state.pulse_frame = 0;
     state.pulse_total = 0;
     state.ai_pending = false;
     KillTimer(hwnd, kAiTimerId);
-    KillTimer(hwnd, kBlinkTimerId);
+    KillTimer(hwnd, kGlowTimerId);
     KillTimer(hwnd, kPulseTimerId);
     InvalidateRect(hwnd, nullptr, TRUE);
 }
@@ -273,22 +273,6 @@ void DrawBoardBase(HDC dc, const RECT &client, const GameState &state) {
         }
     }
 
-    if (!state.win_cells.empty() && state.win_blink_on) {
-        POINT start = state.win_cells.front();
-        POINT end = state.win_cells.back();
-        int start_cx = kMargin + start.x * kCellSize;
-        int start_cy = kMargin + start.y * kCellSize;
-        int end_cx = kMargin + end.x * kCellSize;
-        int end_cy = kMargin + end.y * kCellSize;
-
-        HPEN win_pen = CreatePen(PS_SOLID, 6, RGB(200, 60, 60));
-        HPEN old_win_pen = static_cast<HPEN>(SelectObject(mem_dc, win_pen));
-        MoveToEx(mem_dc, start_cx, start_cy, nullptr);
-        LineTo(mem_dc, end_cx, end_cy);
-        SelectObject(mem_dc, old_win_pen);
-        DeleteObject(win_pen);
-    }
-
     if (state.scene == Scene::Playing) {
         std::wstring status = BuildStatusText(state);
         RECT text_rect{
@@ -376,27 +360,43 @@ void DrawMenu(HDC dc, HWND hwnd, const RECT &client, const GameState &state) {
     DeleteObject(label_font);
 }
 
+void DrawWinGlow(HDC dc, const GameState &state) {
+    if (state.win_cells.size() != 5) {
+        return;
+    }
+    float glow = 1.0f + 0.12f * std::sin(state.anim_phase);
+    int base_radius = kCellSize / 2 + 4;
+    int outer_radius = static_cast<int>(base_radius * glow) + 6;
+    int inner_radius = static_cast<int>(base_radius * glow) + 2;
+    COLORREF outer_color = RGB(255, 220, 140);
+    COLORREF inner_color = RGB(255, 190, 90);
+
+    HPEN outer_pen = CreatePen(PS_SOLID, 4, outer_color);
+    HPEN inner_pen = CreatePen(PS_SOLID, 2, inner_color);
+    HBRUSH hollow_brush = static_cast<HBRUSH>(GetStockObject(HOLLOW_BRUSH));
+
+    for (const auto &cell : state.win_cells) {
+        int cx = kMargin + cell.x * kCellSize;
+        int cy = kMargin + cell.y * kCellSize;
+
+        HPEN old_pen = static_cast<HPEN>(SelectObject(dc, outer_pen));
+        HBRUSH old_brush = static_cast<HBRUSH>(SelectObject(dc, hollow_brush));
+        Ellipse(dc, cx - outer_radius, cy - outer_radius, cx + outer_radius, cy + outer_radius);
+        SelectObject(dc, inner_pen);
+        Ellipse(dc, cx - inner_radius, cy - inner_radius, cx + inner_radius, cy + inner_radius);
+        SelectObject(dc, old_pen);
+        SelectObject(dc, old_brush);
+    }
+
+    DeleteObject(outer_pen);
+    DeleteObject(inner_pen);
+}
+
 void DrawGameOverOverlay(HDC dc, HWND hwnd, const RECT &client, const GameState &state) {
     RECT overlay = client;
-    HBRUSH overlay_brush = CreateSolidBrush(RGB(245, 245, 245));
+    HBRUSH overlay_brush = CreateSolidBrush(RGB(235, 235, 235));
     FillRect(dc, &overlay, overlay_brush);
     DeleteObject(overlay_brush);
-
-    if (!state.win_cells.empty() && state.win_blink_on) {
-        POINT start = state.win_cells.front();
-        POINT end = state.win_cells.back();
-        int start_cx = kMargin + start.x * kCellSize;
-        int start_cy = kMargin + start.y * kCellSize;
-        int end_cx = kMargin + end.x * kCellSize;
-        int end_cy = kMargin + end.y * kCellSize;
-
-        HPEN win_pen = CreatePen(PS_SOLID, 6, RGB(200, 60, 60));
-        HPEN old_win_pen = static_cast<HPEN>(SelectObject(dc, win_pen));
-        MoveToEx(dc, start_cx, start_cy, nullptr);
-        LineTo(dc, end_cx, end_cy);
-        SelectObject(dc, old_win_pen);
-        DeleteObject(win_pen);
-    }
 
     const wchar_t *result_text = L"DRAW";
     if (state.winner == state.human_player) {
@@ -405,13 +405,19 @@ void DrawGameOverOverlay(HDC dc, HWND hwnd, const RECT &client, const GameState 
         result_text = L"YOU LOSE!";
     }
 
-    int panel_width = ScaleByDpi(hwnd, 420);
-    int panel_height = ScaleByDpi(hwnd, 240);
+    int panel_width = ScaleByDpi(hwnd, 440);
+    int panel_height = ScaleByDpi(hwnd, 260);
     RECT panel = MakeCenteredRect(client, (client.top + client.bottom) / 2, panel_width, panel_height);
     HBRUSH panel_brush = CreateSolidBrush(RGB(250, 250, 250));
     FillRect(dc, &panel, panel_brush);
     DeleteObject(panel_brush);
-    FrameRect(dc, &panel, static_cast<HBRUSH>(GetStockObject(GRAY_BRUSH)));
+    HPEN panel_pen = CreatePen(PS_SOLID, 2, RGB(180, 180, 180));
+    HPEN old_pen = static_cast<HPEN>(SelectObject(dc, panel_pen));
+    HBRUSH old_brush = static_cast<HBRUSH>(SelectObject(dc, static_cast<HBRUSH>(GetStockObject(HOLLOW_BRUSH))));
+    RoundRect(dc, panel.left, panel.top, panel.right, panel.bottom, ScaleByDpi(hwnd, 16), ScaleByDpi(hwnd, 16));
+    SelectObject(dc, old_pen);
+    SelectObject(dc, old_brush);
+    DeleteObject(panel_pen);
 
     HFONT big_font = CreateFontW(ScaleByDpi(hwnd, 44), 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
                                  DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
@@ -419,10 +425,19 @@ void DrawGameOverOverlay(HDC dc, HWND hwnd, const RECT &client, const GameState 
     HFONT old_font = static_cast<HFONT>(SelectObject(dc, big_font));
     SetBkMode(dc, TRANSPARENT);
     SetTextColor(dc, RGB(40, 40, 40));
-    RECT text_rect = MakeCenteredRect(client, panel.top + ScaleByDpi(hwnd, 40), panel_width - 40, ScaleByDpi(hwnd, 60));
+    RECT text_rect = MakeCenteredRect(client, panel.top + ScaleByDpi(hwnd, 46), panel_width - 40, ScaleByDpi(hwnd, 60));
     DrawTextW(dc, result_text, -1, &text_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     SelectObject(dc, old_font);
     DeleteObject(big_font);
+
+    HFONT small_font = CreateFontW(ScaleByDpi(hwnd, 16), 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+                                   DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                                   CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+    old_font = static_cast<HFONT>(SelectObject(dc, small_font));
+    RECT hint_rect = MakeCenteredRect(client, panel.top + ScaleByDpi(hwnd, 96), panel_width - 60, ScaleByDpi(hwnd, 40));
+    DrawTextW(dc, L"R: Play Again   ESC: Menu", -1, &hint_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    SelectObject(dc, old_font);
+    DeleteObject(small_font);
 
     GameOverLayout layout = BuildGameOverLayout(hwnd, client);
     DrawButton(dc, layout.play_again, L"Play Again", false);
@@ -443,10 +458,10 @@ std::vector<POINT> BuildWinCells(const WinLine &line) {
     return cells;
 }
 
-void StartBlinkTimer(GameState &state, HWND hwnd) {
-    state.win_blink_on = true;
-    KillTimer(hwnd, kBlinkTimerId);
-    SetTimer(hwnd, kBlinkTimerId, kBlinkIntervalMs, nullptr);
+void StartGlowTimer(GameState &state, HWND hwnd) {
+    state.anim_phase = 0.0f;
+    KillTimer(hwnd, kGlowTimerId);
+    SetTimer(hwnd, kGlowTimerId, kGlowIntervalMs, nullptr);
 }
 
 void StartPulseTimer(GameState &state, HWND hwnd) {
@@ -462,7 +477,7 @@ void SetWinState(GameState &state, HWND hwnd, int winner, const std::optional<Wi
     state.win_cells.clear();
     if (line) {
         state.win_cells = BuildWinCells(*line);
-        StartBlinkTimer(state, hwnd);
+        StartGlowTimer(state, hwnd);
     }
     state.scene = Scene::GameOver;
 }
@@ -488,8 +503,8 @@ void HandleUndo(GameState &state, HWND hwnd) {
     state.winner = GomokuGame::kEmpty;
     state.win_line.reset();
     state.win_cells.clear();
-    state.win_blink_on = true;
-    KillTimer(hwnd, kBlinkTimerId);
+    state.anim_phase = 0.0f;
+    KillTimer(hwnd, kGlowTimerId);
     InvalidateRect(hwnd, nullptr, TRUE);
 }
 
@@ -609,8 +624,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpara
                 InvalidateRect(hwnd, nullptr, FALSE);
                 return 0;
             }
-            if (wparam == kBlinkTimerId) {
-                state->win_blink_on = !state->win_blink_on;
+            if (wparam == kGlowTimerId) {
+                state->anim_phase += 0.18f;
+                if (state->anim_phase > 6.2831853f) {
+                    state->anim_phase -= 6.2831853f;
+                }
                 InvalidateRect(hwnd, nullptr, FALSE);
                 return 0;
             }
@@ -659,6 +677,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpara
             } else {
                 DrawBoardBase(dc, client, *state);
                 if (state->scene == Scene::GameOver) {
+                    DrawWinGlow(dc, *state);
                     DrawGameOverOverlay(dc, hwnd, client, *state);
                 }
             }
