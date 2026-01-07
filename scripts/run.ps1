@@ -9,10 +9,6 @@ function Write-ErrorAndExit($message) {
   exit 1
 }
 
-if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-  Write-ErrorAndExit "git not found. Install Git from https://git-scm.com/downloads and re-run."
-}
-
 function Resolve-CMakePath {
   if ($env:VSINSTALLDIR) {
     $vsCmakeRoot = Join-Path $env:VSINSTALLDIR "Common7\IDE\CommonExtensions\Microsoft\CMake"
@@ -49,34 +45,20 @@ if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
   Write-ErrorAndExit "MSVC compiler (cl.exe) not found. Install Visual Studio Build Tools with the C++ workload or use Developer PowerShell for VS."
 }
 
-if (-not (Test-Path "vcpkg")) {
-  Write-Host "Cloning vcpkg..."
-  git clone https://github.com/microsoft/vcpkg.git
-}
-
-if (-not (Test-Path ".\vcpkg\vcpkg.exe")) {
-  Write-Host "Bootstrapping vcpkg..."
-  .\vcpkg\bootstrap-vcpkg.bat
-}
-
-$toolchainPath = Resolve-Path ".\vcpkg\scripts\buildsystems\vcpkg.cmake"
-$env:VCPKG_ROOT = (Resolve-Path ".\vcpkg").Path
-
-$preset = "windows-msvc-debug"
-$buildDir = Join-Path "build" $preset
+$buildDir = Join-Path $repoRoot "build"
 $cachePath = Join-Path $buildDir "CMakeCache.txt"
 
-Write-Host "Configuring with preset: $preset"
-$configureOutput = & $cmakePath --preset $preset 2>&1
+Write-Host "Configuring CMake..."
+$configureOutput = & $cmakePath -S $repoRoot -B $buildDir -G "Visual Studio 17 2022" -A x64 2>&1
 $configureOutput | Write-Host
 
 if (-not (Test-Path $cachePath)) {
   Write-ErrorAndExit "CMake cache not found at $cachePath. Configure output above."
 }
 
-& $cmakePath --build --preset $preset
+& $cmakePath --build $buildDir --config Debug
 
-$exePath = Join-Path $buildDir "gomoku.exe"
+$exePath = Join-Path $buildDir "Debug\\gomoku.exe"
 if (Test-Path $exePath) {
   & $exePath
   exit $LASTEXITCODE
