@@ -45,12 +45,18 @@ bool GomokuGame::undoLastMove() {
 }
 
 bool GomokuGame::checkWin(int x, int y, int player) const {
+    return findWinningLine(x, y, player).has_value();
+}
+
+std::optional<WinLine> GomokuGame::findWinningLine(int x, int y, int player) const {
     const int directions[4][2] = {
         {1, 0}, {0, 1}, {1, 1}, {1, -1}
     };
 
     for (const auto &dir : directions) {
         int count = 1;
+        int count_pos = 0;
+        int count_neg = 0;
         for (int step = 1; step < 5; ++step) {
             int nx = x + dir[0] * step;
             int ny = y + dir[1] * step;
@@ -58,6 +64,7 @@ bool GomokuGame::checkWin(int x, int y, int player) const {
                 break;
             }
             ++count;
+            ++count_pos;
         }
         for (int step = 1; step < 5; ++step) {
             int nx = x - dir[0] * step;
@@ -66,13 +73,25 @@ bool GomokuGame::checkWin(int x, int y, int player) const {
                 break;
             }
             ++count;
+            ++count_neg;
         }
         if (count >= 5) {
-            return true;
+            int total = count_pos + count_neg + 1;
+            int offset_from_start = count_neg;
+            int start_offset = offset_from_start - 4;
+            if (start_offset < 0) {
+                start_offset = 0;
+            }
+            if (start_offset > total - 5) {
+                start_offset = total - 5;
+            }
+            int start_x = x - dir[0] * count_neg + dir[0] * start_offset;
+            int start_y = y - dir[1] * count_neg + dir[1] * start_offset;
+            return WinLine{start_x, start_y, dir[0], dir[1], 5};
         }
     }
 
-    return false;
+    return std::nullopt;
 }
 
 bool GomokuGame::isBoardFull() const {
