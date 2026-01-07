@@ -12,7 +12,6 @@ constexpr int kCellSize = 32;
 constexpr int kMargin = 40;
 constexpr int kInfoHeight = 40;
 constexpr int kAiTimerId = 1;
-constexpr UINT kAiDelayMs = 100;
 constexpr int kButtonWidth = 220;
 constexpr int kButtonHeight = 36;
 constexpr int kOptionWidth = 160;
@@ -35,6 +34,9 @@ struct GameState {
     std::optional<WinLine> win_line;
     bool ai_pending = false;
 };
+
+static void StartAiTimer(HWND hwnd);
+static void DoAiMove(GameState &state, HWND hwnd);
 
 int BoardPixelSize() {
     return kCellSize * (GomokuGame::kBoardSize - 1);
@@ -124,8 +126,11 @@ void StartMatch(GameState &state, HWND hwnd) {
     }
 }
 
-void StartAiTimer(HWND hwnd) {
-    SetTimer(hwnd, kAiTimerId, kAiDelayMs, nullptr);
+static void StartAiTimer(HWND hwnd) {
+    constexpr UINT_PTR kAiTimerId = 1;
+    constexpr UINT kDelayMs = 120;
+    KillTimer(hwnd, kAiTimerId);
+    SetTimer(hwnd, kAiTimerId, kDelayMs, nullptr);
 }
 
 std::wstring BuildStatusText(const GameState &state) {
@@ -344,6 +349,28 @@ void HandleUndo(GameState &state, HWND hwnd) {
     InvalidateRect(hwnd, nullptr, TRUE);
 }
 
+static void DoAiMove(GameState &state, HWND hwnd) {
+    state.ai_pending = false;
+    if (state.scene != Scene::Playing || state.winner != GomokuGame::kEmpty || state.game.isBoardFull()) {
+        return;
+    }
+    if (state.game.currentPlayer() != state.ai_player) {
+        return;
+    }
+    auto move = ComputeAiMove(state.game, state.ai_player, state.human_player, state.difficulty);
+    if (state.game.placeStone(move.first, move.second, state.ai_player)) {
+        state.win_line = state.game.findWinningLine(move.first, move.second, state.ai_player);
+        if (state.win_line) {
+            state.winner = state.ai_player;
+            state.scene = Scene::GameOver;
+        } else if (state.game.isBoardFull()) {
+            state.scene = Scene::GameOver;
+        } else {
+            state.game.setCurrentPlayer(state.human_player);
+        }
+    }
+}
+
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
     GameState *state = reinterpret_cast<GameState *>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
 
@@ -429,30 +456,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpara
             return 0;
         }
         case WM_TIMER: {
-            if (!state || wparam != kAiTimerId) {
+            if (!state || wparam != 1) {
                 return 0;
             }
-            KillTimer(hwnd, kAiTimerId);
-            state->ai_pending = false;
-            if (state->scene != Scene::Playing || state->winner != GomokuGame::kEmpty || state->game.isBoardFull()) {
-                return 0;
-            }
-            if (state->game.currentPlayer() != state->ai_player) {
-                return 0;
-            }
-            auto move = ComputeAiMove(state->game, state->ai_player, state->human_player, state->difficulty);
-            if (state->game.placeStone(move.first, move.second, state->ai_player)) {
-                state->win_line = state->game.findWinningLine(move.first, move.second, state->ai_player);
-                if (state->win_line) {
-                    state->winner = state->ai_player;
-                    state->scene = Scene::GameOver;
-                } else if (state->game.isBoardFull()) {
-                    state->scene = Scene::GameOver;
-                } else {
-                    state->game.setCurrentPlayer(state->human_player);
-                }
-            }
-            InvalidateRect(hwnd, nullptr, TRUE);
+            KillTimer(hwnd, 1);
+            DoAiMove(*state, hwnd);
+            InvalidateRect(hwnd, nullptr, FALSE);
             return 0;
         }
         case WM_KEYDOWN: {
