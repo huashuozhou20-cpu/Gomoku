@@ -12,7 +12,7 @@ constexpr int kCellSize = 32;
 constexpr int kMargin = 40;
 constexpr int kInfoHeight = 40;
 constexpr int kAiTimerId = 1;
-constexpr UINT kAiDelayMs = 120;
+constexpr UINT kAiDelayMs = 100;
 constexpr int kButtonWidth = 220;
 constexpr int kButtonHeight = 36;
 constexpr int kOptionWidth = 160;
@@ -119,12 +119,12 @@ void StartMatch(GameState &state, HWND hwnd) {
     ResetGame(state, hwnd);
     state.scene = Scene::Playing;
     if (state.game.currentPlayer() == state.ai_player) {
-        StartAiTimer(state, hwnd);
+        state.ai_pending = true;
+        StartAiTimer(hwnd);
     }
 }
 
-void StartAiTimer(GameState &state, HWND hwnd) {
-    state.ai_pending = true;
+void StartAiTimer(HWND hwnd) {
     SetTimer(hwnd, kAiTimerId, kAiDelayMs, nullptr);
 }
 
@@ -422,7 +422,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpara
                 state->scene = Scene::GameOver;
             } else {
                 state->game.setCurrentPlayer(state->ai_player);
-                StartAiTimer(*state, hwnd);
+                state->ai_pending = true;
+                StartAiTimer(hwnd);
             }
             InvalidateRect(hwnd, nullptr, TRUE);
             return 0;
