@@ -39,10 +39,18 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run.ps1
 ## Controls
 
 - **Left click:** place a stone on the nearest intersection.
-- **R:** reset the board.
+- **ESC:** return to the menu.
+- **R:** restart the current match with the same settings.
 - **U:** undo (removes the last AI+human turn when possible).
+
+## Menu & Match Flow
+
+- Choose who moves first (Player or AI).
+- Select AI difficulty (Easy/Normal/Hard).
+- **Start** begins a match, **Quit** exits.
+- After a match ends, use **Play Again** or **Back to Menu**.
 
 ## Gameplay Rules
 
 - 15x15 board, first to five in a row wins.
-- You play **black**; the AI plays **white**.
+- The first mover plays **black**; the second plays **white**.
