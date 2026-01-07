@@ -10,13 +10,20 @@ A cross-platform Gomoku game built in C++17. Play as the black stones against a 
 
 ## Download & Run (Recommended)
 
-1. Download the latest release for your OS from **GitHub Releases**: https://github.com/<your-org-or-user>/Gomoku/releases
+1. Download the latest release for your OS from **GitHub Releases**: https://github.com/<your-org-or-user>/Gomoku/releases (includes ready-to-run executables).
 2. Unzip the archive.
 3. Run the `gomoku` binary (`gomoku.exe` on Windows).
 
 ## Build from Source (Developers)
 
 ### Windows (PowerShell)
+
+```powershell
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config Release
+```
+
+Run the output at `build\\Release\\gomoku.exe`, or use the convenience script:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\\scripts\\run.ps1
@@ -28,7 +35,7 @@ powershell -ExecutionPolicy Bypass -File .\\scripts\\run.ps1
 ./scripts/run.sh
 ```
 
-The run scripts will clone/bootstraps **vcpkg**, configure CMake presets, build, and run the game.
+The run scripts configure CMake, build, and run the game.
 
 ## VS Code Quick Start
 
@@ -53,7 +60,7 @@ The run scripts will clone/bootstraps **vcpkg**, configure CMake presets, build,
 - **macOS:** Run `xcode-select --install`.
 - **Linux:** `sudo apt-get install build-essential cmake` (or your distro equivalent).
 - **PowerShell execution policy:** Use `-ExecutionPolicy Bypass` or set `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
-- **vcpkg install failures:** Check your network/proxy settings and re-run the script.
+- **Windows:** Ensure the vendored raylib DLL is next to `gomoku.exe` (the build does this automatically).
 
 ## Gameplay Rules
 
@@ -62,7 +69,8 @@ The run scripts will clone/bootstraps **vcpkg**, configure CMake presets, build,
 
 ## Dependencies
 
-- **raylib** via vcpkg (manifest mode).
+- **raylib** vendored for Windows (prebuilt MSVC x64 binaries under `third_party/raylib`).
+- **raylib/SDL2** via vcpkg for macOS/Linux (optional).
 - CMake 3.23+ and a C++17 compiler.
 
 ## Project Structure
