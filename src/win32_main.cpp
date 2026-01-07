@@ -100,6 +100,7 @@ MenuLayout BuildMenuLayout(HWND hwnd, const RECT &client) {
     int action_height = ScaleByDpi(hwnd, 52);
     int button_gap = ScaleByDpi(hwnd, 12);
     int content_width = client.right - client.left - side_margin * 2;
+    int inner_width = content_width - card_padding * 2;
 
     int y = side_margin;
     layout.title = MakeCenteredRect(client, y + ScaleByDpi(hwnd, 28), ScaleByDpi(hwnd, 420), ScaleByDpi(hwnd, 60));
@@ -110,7 +111,7 @@ MenuLayout BuildMenuLayout(HWND hwnd, const RECT &client) {
     int card_height = card_padding * 2 + label_height + button_height;
     layout.first_card = RECT{side_margin, y, client.right - side_margin, y + card_height};
     int row_y = layout.first_card.top + card_padding + label_height;
-    int button_width_two = (content_width - button_gap) / 2;
+    int button_width_two = (inner_width - button_gap) / 2;
     layout.player_first = RECT{side_margin + card_padding, row_y,
                                side_margin + card_padding + button_width_two, row_y + button_height};
     layout.ai_first = RECT{layout.player_first.right + button_gap, row_y,
@@ -119,7 +120,7 @@ MenuLayout BuildMenuLayout(HWND hwnd, const RECT &client) {
     y = layout.first_card.bottom + card_gap;
     layout.difficulty_card = RECT{side_margin, y, client.right - side_margin, y + card_height};
     row_y = layout.difficulty_card.top + card_padding + label_height;
-    int button_width_three = (content_width - button_gap * 2) / 3;
+    int button_width_three = (inner_width - button_gap * 2) / 3;
     layout.easy = RECT{side_margin + card_padding, row_y,
                        side_margin + card_padding + button_width_three, row_y + button_height};
     layout.normal = RECT{layout.easy.right + button_gap, row_y,
@@ -132,7 +133,7 @@ MenuLayout BuildMenuLayout(HWND hwnd, const RECT &client) {
     layout.action_card = RECT{side_margin, y, client.right - side_margin, y + action_height_total};
     int action_y = layout.action_card.top + card_padding + label_height;
     layout.start = RECT{side_margin + card_padding, action_y,
-                        side_margin + card_padding + content_width, action_y + action_height};
+                        side_margin + card_padding + inner_width, action_y + action_height};
     layout.quit = RECT{layout.start.left, layout.start.bottom + button_gap,
                        layout.start.right, layout.start.bottom + button_gap + action_height};
 
@@ -147,70 +148,6 @@ GameOverLayout BuildGameOverLayout(HWND hwnd, const RECT &client) {
     int button_gap = ScaleByDpi(hwnd, 14);
     layout.play_again = MakeCenteredRect(client, center_y, button_width, button_height);
     layout.back_to_menu = MakeCenteredRect(client, center_y + button_height + button_gap, button_width, button_height);
-    return layout;
-}
-
-void ConfigurePlayers(GameState &state) {
-    if (state.player_first) {
-        state.human_player = GomokuGame::kBlack;
-        state.ai_player = GomokuGame::kWhite;
-    } else {
-        state.human_player = GomokuGame::kWhite;
-        state.ai_player = GomokuGame::kBlack;
-    }
-}
-
-RECT MakeCenteredRect(const RECT &client, int center_y, int width, int height) {
-    int center_x = (client.left + client.right) / 2;
-    RECT rect{
-        center_x - width / 2,
-        center_y - height / 2,
-        center_x + width / 2,
-        center_y + height / 2
-    };
-    return rect;
-}
-
-struct MenuLayout {
-    RECT player_first{};
-    RECT ai_first{};
-    RECT easy{};
-    RECT normal{};
-    RECT hard{};
-    RECT start{};
-    RECT quit{};
-};
-
-struct GameOverLayout {
-    RECT play_again{};
-    RECT back_to_menu{};
-};
-
-MenuLayout BuildMenuLayout(const RECT &client) {
-    MenuLayout layout{};
-    int center_x = (client.left + client.right) / 2;
-    int y = kMargin + 40;
-    layout.player_first = RECT{center_x - kOptionWidth - 10, y, center_x - 10, y + kOptionHeight};
-    layout.ai_first = RECT{center_x + 10, y, center_x + kOptionWidth + 10, y + kOptionHeight};
-
-    y += kOptionHeight + 40;
-    layout.easy = RECT{center_x - kOptionWidth - 10, y, center_x - 10, y + kOptionHeight};
-    layout.normal = RECT{center_x + 10, y, center_x + kOptionWidth + 10, y + kOptionHeight};
-    layout.hard = RECT{center_x - kOptionWidth / 2, y + kOptionHeight + 10,
-                       center_x + kOptionWidth / 2, y + kOptionHeight + 10 + kOptionHeight};
-
-    y += kOptionHeight * 2 + 60;
-    layout.start = MakeCenteredRect(client, y, kButtonWidth, kButtonHeight);
-    layout.quit = MakeCenteredRect(client, y + kButtonHeight + 20, kButtonWidth, kButtonHeight);
-
-    return layout;
-}
-
-GameOverLayout BuildGameOverLayout(const RECT &client) {
-    GameOverLayout layout{};
-    int center_y = (client.top + client.bottom) / 2 + 40;
-    layout.play_again = MakeCenteredRect(client, center_y, kButtonWidth, kButtonHeight);
-    layout.back_to_menu = MakeCenteredRect(client, center_y + kButtonHeight + 16, kButtonWidth, kButtonHeight);
     return layout;
 }
 
