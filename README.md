@@ -7,6 +7,14 @@ A lightweight Windows-only Gomoku game written in C++17 with a native Win32/GDI 
 - Grab the latest `gomoku.exe` from **GitHub Releases**: https://github.com/<your-org-or-user>/Gomoku/releases
 - Double-click `gomoku.exe` to play.
 
+## Fastest Run (Windows)
+
+```powershell
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config Release
+.\build\Release\gomoku.exe
+```
+
 ## Build from Source (Windows)
 
 Requires **Visual Studio C++ Build Tools** and **CMake**.
