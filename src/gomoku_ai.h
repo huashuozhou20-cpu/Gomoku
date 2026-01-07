@@ -5,6 +5,12 @@
 
 #include "gomoku.h"
 
-std::pair<int, int> ComputeAiMove(const GomokuGame &game);
+enum class AiDifficulty {
+    Easy,
+    Normal,
+    Hard
+};
+
+std::pair<int, int> ComputeAiMove(const GomokuGame &game, int ai_player, int human_player, AiDifficulty difficulty);
 
 #endif

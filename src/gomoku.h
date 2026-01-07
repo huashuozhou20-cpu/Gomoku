@@ -11,6 +11,14 @@ struct Move {
     int player = 0;
 };
 
+struct WinLine {
+    int start_x = 0;
+    int start_y = 0;
+    int dx = 0;
+    int dy = 0;
+    int length = 0;
+};
+
 class GomokuGame {
 public:
     static constexpr int kBoardSize = 15;
@@ -24,6 +32,7 @@ public:
     bool placeStone(int x, int y, int player);
     bool undoLastMove();
     bool checkWin(int x, int y, int player) const;
+    std::optional<WinLine> findWinningLine(int x, int y, int player) const;
     bool isBoardFull() const;
 
     int at(int x, int y) const { return board_[y][x]; }

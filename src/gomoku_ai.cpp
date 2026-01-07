@@ -1,7 +1,10 @@
 #include "gomoku_ai.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
+#include <limits>
+#include <random>
 #include <vector>
 
 namespace {
@@ -168,13 +171,169 @@ int ProximityScore(const GomokuGame &game, int x, int y) {
     return 30 - min_distance * 2;
 }
 
+std::vector<std::pair<int, int>> SelectTopCandidates(const GomokuGame &game, int player, int limit) {
+    auto candidates = GenerateCandidates(game);
+    struct ScoredMove {
+        std::pair<int, int> move;
+        int score = 0;
+    };
+    std::vector<ScoredMove> scored;
+    scored.reserve(candidates.size());
+
+    for (const auto &move : candidates) {
+        int x = move.first;
+        int y = move.second;
+        int score = EvaluateCell(game, x, y, player);
+        int center_bias = std::abs(x - GomokuGame::kBoardSize / 2)
+                        + std::abs(y - GomokuGame::kBoardSize / 2);
+        score -= center_bias * 3;
+        score += ProximityScore(game, x, y);
+        scored.push_back({move, score});
+    }
+
+    std::sort(scored.begin(), scored.end(), [](const ScoredMove &a, const ScoredMove &b) {
+        return a.score > b.score;
+    });
+
+    std::vector<std::pair<int, int>> top_moves;
+    int count = 0;
+    for (const auto &entry : scored) {
+        top_moves.push_back(entry.move);
+        ++count;
+        if (count >= limit) {
+            break;
+        }
+    }
+    if (top_moves.empty() && !candidates.empty()) {
+        top_moves.push_back(candidates.front());
+    }
+    return top_moves;
+}
+
+int EvaluateBoard(const GomokuGame &game, int ai_player, int human_player) {
+    int score = 0;
+    auto candidates = GenerateCandidates(game);
+    for (const auto &move : candidates) {
+        int x = move.first;
+        int y = move.second;
+        score += EvaluateCell(game, x, y, ai_player);
+        score -= EvaluateCell(game, x, y, human_player);
+    }
+    return score;
+}
+
+int Minimax(GomokuGame &game, int depth, bool maximizing, int ai_player, int human_player, int alpha, int beta,
+            int candidate_limit) {
+    if (depth == 0 || game.isBoardFull()) {
+        return EvaluateBoard(game, ai_player, human_player);
+    }
+
+    int player = maximizing ? ai_player : human_player;
+    auto candidates = SelectTopCandidates(game, player, candidate_limit);
+    if (candidates.empty()) {
+        return EvaluateBoard(game, ai_player, human_player);
+    }
+
+    if (maximizing) {
+        int best = std::numeric_limits<int>::min();
+        for (const auto &move : candidates) {
+            if (!game.placeStone(move.first, move.second, player)) {
+                continue;
+            }
+            int score = 0;
+            if (game.findWinningLine(move.first, move.second, player)) {
+                score = 1000000 + depth * 100;
+            } else {
+                score = Minimax(game, depth - 1, false, ai_player, human_player, alpha, beta, candidate_limit);
+            }
+            game.undoLastMove();
+            if (score > best) {
+                best = score;
+            }
+            if (best > alpha) {
+                alpha = best;
+            }
+            if (beta <= alpha) {
+                break;
+            }
+        }
+        return best;
+    }
+
+    int best = std::numeric_limits<int>::max();
+    for (const auto &move : candidates) {
+        if (!game.placeStone(move.first, move.second, player)) {
+            continue;
+        }
+        int score = 0;
+        if (game.findWinningLine(move.first, move.second, player)) {
+            score = -1000000 - depth * 100;
+        } else {
+            score = Minimax(game, depth - 1, true, ai_player, human_player, alpha, beta, candidate_limit);
+        }
+        game.undoLastMove();
+        if (score < best) {
+            best = score;
+        }
+        if (best < beta) {
+            beta = best;
+        }
+        if (beta <= alpha) {
+            break;
+        }
+    }
+    return best;
+}
+
 } // namespace
 
-std::pair<int, int> ComputeAiMove(const GomokuGame &game) {
-    const int ai_player = GomokuGame::kWhite;
-    const int human_player = GomokuGame::kBlack;
-
+std::pair<int, int> ComputeAiMove(const GomokuGame &game, int ai_player, int human_player, AiDifficulty difficulty) {
     auto candidates = GenerateCandidates(game);
+
+    if (difficulty == AiDifficulty::Easy) {
+        for (const auto &move : candidates) {
+            if (WouldWin(game, move.first, move.second, ai_player)) {
+                return move;
+            }
+        }
+        for (const auto &move : candidates) {
+            if (WouldWin(game, move.first, move.second, human_player)) {
+                return move;
+            }
+        }
+
+        std::mt19937 rng(std::random_device{}());
+        std::uniform_int_distribution<size_t> dist(0, candidates.size() - 1);
+        return candidates[dist(rng)];
+    }
+
+    if (difficulty == AiDifficulty::Hard) {
+        const int candidate_limit = 14;
+        GomokuGame copy = game;
+        auto top_moves = SelectTopCandidates(copy, ai_player, candidate_limit);
+        int best_score = std::numeric_limits<int>::min();
+        std::pair<int, int> best_move = top_moves.front();
+        for (const auto &move : top_moves) {
+            if (!copy.placeStone(move.first, move.second, ai_player)) {
+                continue;
+            }
+            int score = 0;
+            if (copy.findWinningLine(move.first, move.second, ai_player)) {
+                score = 1000000;
+            } else {
+                score = Minimax(copy, 2, false, ai_player, human_player,
+                                std::numeric_limits<int>::min(),
+                                std::numeric_limits<int>::max(),
+                                candidate_limit);
+            }
+            copy.undoLastMove();
+            if (score > best_score) {
+                best_score = score;
+                best_move = move;
+            }
+        }
+        return best_move;
+    }
 
     for (const auto &move : candidates) {
         if (WouldWin(game, move.first, move.second, ai_player)) {
