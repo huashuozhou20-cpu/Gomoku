@@ -1,7 +1,9 @@
 #include <windows.h>
 #include <windowsx.h>
 
+#include <cmath>
 #include <string>
+#include <vector>
 
 #include "gomoku.h"
 #include "gomoku_ai.h"
@@ -10,12 +12,14 @@ namespace {
 
 constexpr int kCellSize = 32;
 constexpr int kMargin = 40;
-constexpr int kInfoHeight = 40;
 constexpr int kAiTimerId = 1;
-constexpr int kButtonWidth = 220;
-constexpr int kButtonHeight = 36;
-constexpr int kOptionWidth = 160;
-constexpr int kOptionHeight = 32;
+constexpr int kBlinkTimerId = 2;
+constexpr int kPulseTimerId = 3;
+constexpr UINT kBlinkIntervalMs = 300;
+constexpr UINT kPulseIntervalMs = 30;
+constexpr int kPulseFrames = 7;
+constexpr int kWindowWidth = 700;
+constexpr int kWindowHeight = 820;
 
 enum class Scene {
     Menu,
@@ -32,14 +36,128 @@ struct GameState {
     int ai_player = GomokuGame::kWhite;
     int winner = GomokuGame::kEmpty;
     std::optional<WinLine> win_line;
+    std::vector<POINT> win_cells;
+    bool win_blink_on = true;
+    int pulse_frame = 0;
+    int pulse_total = 0;
     bool ai_pending = false;
 };
 
 static void StartAiTimer(HWND hwnd);
 static void DoAiMove(GameState &state, HWND hwnd);
 
-int BoardPixelSize() {
-    return kCellSize * (GomokuGame::kBoardSize - 1);
+int ScaleByDpi(UINT dpi, int value) {
+    return MulDiv(value, static_cast<int>(dpi), 96);
+}
+
+int ScaleByDpi(HWND hwnd, int value) {
+    UINT dpi = GetDpiForWindow(hwnd);
+    return ScaleByDpi(dpi, value);
+}
+
+int BoardPixelSize(int cell_size) {
+    return cell_size * (GomokuGame::kBoardSize - 1);
+}
+
+RECT MakeCenteredRect(const RECT &client, int center_y, int width, int height) {
+    int center_x = (client.left + client.right) / 2;
+    RECT rect{
+        center_x - width / 2,
+        center_y - height / 2,
+        center_x + width / 2,
+        center_y + height / 2
+    };
+    return rect;
+}
+
+struct MenuLayout {
+    RECT title{};
+    RECT subtitle{};
+    RECT first_card{};
+    RECT difficulty_card{};
+    RECT action_card{};
+    RECT player_first{};
+    RECT ai_first{};
+    RECT easy{};
+    RECT normal{};
+    RECT hard{};
+    RECT start{};
+    RECT quit{};
+};
+
+struct GameOverLayout {
+    RECT play_again{};
+    RECT back_to_menu{};
+};
+
+MenuLayout BuildMenuLayout(HWND hwnd, const RECT &client) {
+    MenuLayout layout{};
+    int side_margin = ScaleByDpi(hwnd, 24);
+    int card_padding = ScaleByDpi(hwnd, 16);
+    int card_gap = ScaleByDpi(hwnd, 18);
+    int label_height = ScaleByDpi(hwnd, 18);
+    int button_height = ScaleByDpi(hwnd, 40);
+    int action_height = ScaleByDpi(hwnd, 52);
+    int button_gap = ScaleByDpi(hwnd, 12);
+    int content_width = client.right - client.left - side_margin * 2;
+
+    int y = side_margin;
+    layout.title = MakeCenteredRect(client, y + ScaleByDpi(hwnd, 28), ScaleByDpi(hwnd, 420), ScaleByDpi(hwnd, 60));
+    y += ScaleByDpi(hwnd, 64);
+    layout.subtitle = MakeCenteredRect(client, y, ScaleByDpi(hwnd, 420), ScaleByDpi(hwnd, 26));
+    y += ScaleByDpi(hwnd, 40);
+
+    int card_height = card_padding * 2 + label_height + button_height;
+    layout.first_card = RECT{side_margin, y, client.right - side_margin, y + card_height};
+    int row_y = layout.first_card.top + card_padding + label_height;
+    int button_width_two = (content_width - button_gap) / 2;
+    layout.player_first = RECT{side_margin + card_padding, row_y,
+                               side_margin + card_padding + button_width_two, row_y + button_height};
+    layout.ai_first = RECT{layout.player_first.right + button_gap, row_y,
+                           layout.player_first.right + button_gap + button_width_two, row_y + button_height};
+
+    y = layout.first_card.bottom + card_gap;
+    layout.difficulty_card = RECT{side_margin, y, client.right - side_margin, y + card_height};
+    row_y = layout.difficulty_card.top + card_padding + label_height;
+    int button_width_three = (content_width - button_gap * 2) / 3;
+    layout.easy = RECT{side_margin + card_padding, row_y,
+                       side_margin + card_padding + button_width_three, row_y + button_height};
+    layout.normal = RECT{layout.easy.right + button_gap, row_y,
+                         layout.easy.right + button_gap + button_width_three, row_y + button_height};
+    layout.hard = RECT{layout.normal.right + button_gap, row_y,
+                       layout.normal.right + button_gap + button_width_three, row_y + button_height};
+
+    y = layout.difficulty_card.bottom + card_gap;
+    int action_height_total = card_padding * 2 + label_height + action_height * 2 + button_gap;
+    layout.action_card = RECT{side_margin, y, client.right - side_margin, y + action_height_total};
+    int action_y = layout.action_card.top + card_padding + label_height;
+    layout.start = RECT{side_margin + card_padding, action_y,
+                        side_margin + card_padding + content_width, action_y + action_height};
+    layout.quit = RECT{layout.start.left, layout.start.bottom + button_gap,
+                       layout.start.right, layout.start.bottom + button_gap + action_height};
+
+    return layout;
+}
+
+GameOverLayout BuildGameOverLayout(HWND hwnd, const RECT &client) {
+    GameOverLayout layout{};
+    int center_y = (client.top + client.bottom) / 2 + ScaleByDpi(hwnd, 90);
+    int button_width = ScaleByDpi(hwnd, 240);
+    int button_height = ScaleByDpi(hwnd, 44);
+    int button_gap = ScaleByDpi(hwnd, 14);
+    layout.play_again = MakeCenteredRect(client, center_y, button_width, button_height);
+    layout.back_to_menu = MakeCenteredRect(client, center_y + button_height + button_gap, button_width, button_height);
+    return layout;
+}
+
+void ConfigurePlayers(GameState &state) {
+    if (state.player_first) {
+        state.human_player = GomokuGame::kBlack;
+        state.ai_player = GomokuGame::kWhite;
+    } else {
+        state.human_player = GomokuGame::kWhite;
+        state.ai_player = GomokuGame::kBlack;
+    }
 }
 
 RECT MakeCenteredRect(const RECT &client, int center_y, int width, int height) {
@@ -112,8 +230,14 @@ void ResetGame(GameState &state, HWND hwnd) {
     state.game.setCurrentPlayer(state.player_first ? state.human_player : state.ai_player);
     state.winner = GomokuGame::kEmpty;
     state.win_line.reset();
+    state.win_cells.clear();
+    state.win_blink_on = true;
+    state.pulse_frame = 0;
+    state.pulse_total = 0;
     state.ai_pending = false;
     KillTimer(hwnd, kAiTimerId);
+    KillTimer(hwnd, kBlinkTimerId);
+    KillTimer(hwnd, kPulseTimerId);
     InvalidateRect(hwnd, nullptr, TRUE);
 }
 
@@ -173,7 +297,7 @@ void DrawBoardBase(HDC dc, const RECT &client, const GameState &state) {
     HPEN grid_pen = CreatePen(PS_SOLID, 1, RGB(60, 60, 60));
     HPEN old_pen = static_cast<HPEN>(SelectObject(mem_dc, grid_pen));
 
-    int board_size = BoardPixelSize();
+    int board_size = BoardPixelSize(kCellSize);
     for (int i = 0; i < GomokuGame::kBoardSize; ++i) {
         int x = kMargin + i * kCellSize;
         int y = kMargin + i * kCellSize;
@@ -187,6 +311,7 @@ void DrawBoardBase(HDC dc, const RECT &client, const GameState &state) {
     DeleteObject(grid_pen);
 
     int stone_radius = kCellSize / 2 - 2;
+    auto last_move = state.game.lastMove();
     for (int y = 0; y < GomokuGame::kBoardSize; ++y) {
         for (int x = 0; x < GomokuGame::kBoardSize; ++x) {
             int cell = state.game.at(x, y);
@@ -198,20 +323,26 @@ void DrawBoardBase(HDC dc, const RECT &client, const GameState &state) {
             COLORREF color = (cell == GomokuGame::kBlack) ? RGB(30, 30, 30) : RGB(235, 235, 235);
             HBRUSH stone_brush = CreateSolidBrush(color);
             HBRUSH old_brush = static_cast<HBRUSH>(SelectObject(mem_dc, stone_brush));
-            Ellipse(mem_dc, cx - stone_radius, cy - stone_radius, cx + stone_radius, cy + stone_radius);
+            int radius = stone_radius;
+            if (last_move && last_move->x == x && last_move->y == y && state.pulse_total > 0
+                && state.pulse_frame < state.pulse_total) {
+                float t = static_cast<float>(state.pulse_frame) / static_cast<float>(state.pulse_total);
+                float scale = 1.0f + 0.15f * std::sin(t * 3.1415926f);
+                radius = static_cast<int>(stone_radius * scale);
+            }
+            Ellipse(mem_dc, cx - radius, cy - radius, cx + radius, cy + radius);
             SelectObject(mem_dc, old_brush);
             DeleteObject(stone_brush);
         }
     }
 
-    if (state.win_line) {
-        WinLine line = *state.win_line;
-        int start_cx = kMargin + line.start_x * kCellSize;
-        int start_cy = kMargin + line.start_y * kCellSize;
-        int end_x = line.start_x + line.dx * (line.length - 1);
-        int end_y = line.start_y + line.dy * (line.length - 1);
-        int end_cx = kMargin + end_x * kCellSize;
-        int end_cy = kMargin + end_y * kCellSize;
+    if (!state.win_cells.empty() && state.win_blink_on) {
+        POINT start = state.win_cells.front();
+        POINT end = state.win_cells.back();
+        int start_cx = kMargin + start.x * kCellSize;
+        int start_cy = kMargin + start.y * kCellSize;
+        int end_cx = kMargin + end.x * kCellSize;
+        int end_cy = kMargin + end.y * kCellSize;
 
         HPEN win_pen = CreatePen(PS_SOLID, 6, RGB(200, 60, 60));
         HPEN old_win_pen = static_cast<HPEN>(SelectObject(mem_dc, win_pen));
@@ -242,53 +373,85 @@ void DrawBoardBase(HDC dc, const RECT &client, const GameState &state) {
     DeleteDC(mem_dc);
 }
 
-void DrawMenu(HDC dc, const RECT &client, const GameState &state) {
-    HBRUSH background = CreateSolidBrush(RGB(250, 245, 235));
+void DrawMenu(HDC dc, HWND hwnd, const RECT &client, const GameState &state) {
+    HBRUSH background = CreateSolidBrush(RGB(248, 245, 238));
     FillRect(dc, &client, background);
     DeleteObject(background);
 
-    HFONT title_font = CreateFontW(36, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+    int title_size = ScaleByDpi(hwnd, 42);
+    int subtitle_size = ScaleByDpi(hwnd, 18);
+
+    HFONT title_font = CreateFontW(title_size, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
                                    DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                                    CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
-    HFONT old_font = static_cast<HFONT>(SelectObject(dc, title_font));
+    HFONT subtitle_font = CreateFontW(subtitle_size, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+                                      DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                                      CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
     SetBkMode(dc, TRANSPARENT);
     SetTextColor(dc, RGB(30, 30, 30));
-    RECT title_rect = MakeCenteredRect(client, kMargin + 10, 400, 50);
-    DrawTextW(dc, L"Gomoku", -1, &title_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+    MenuLayout layout = BuildMenuLayout(hwnd, client);
+
+    HFONT old_font = static_cast<HFONT>(SelectObject(dc, title_font));
+    DrawTextW(dc, L"Gomoku", -1, &layout.title, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    SelectObject(dc, subtitle_font);
+    DrawTextW(dc, L"Win32 + GDI Edition", -1, &layout.subtitle, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     SelectObject(dc, old_font);
     DeleteObject(title_font);
+    DeleteObject(subtitle_font);
 
-    MenuLayout layout = BuildMenuLayout(client);
+    HBRUSH card_brush = CreateSolidBrush(RGB(240, 240, 236));
+    HBRUSH border_brush = static_cast<HBRUSH>(GetStockObject(GRAY_BRUSH));
+    FillRect(dc, &layout.first_card, card_brush);
+    FrameRect(dc, &layout.first_card, border_brush);
+    FillRect(dc, &layout.difficulty_card, card_brush);
+    FrameRect(dc, &layout.difficulty_card, border_brush);
+    FillRect(dc, &layout.action_card, card_brush);
+    FrameRect(dc, &layout.action_card, border_brush);
+    DeleteObject(card_brush);
 
-    RECT label_rect = MakeCenteredRect(client, layout.player_first.top - 20, 300, 20);
-    DrawTextW(dc, L"Who moves first?", -1, &label_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    HFONT label_font = CreateFontW(ScaleByDpi(hwnd, 18), 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
+                                   DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                                   CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+    old_font = static_cast<HFONT>(SelectObject(dc, label_font));
+    RECT label_rect = layout.first_card;
+    label_rect.bottom = label_rect.top + ScaleByDpi(hwnd, 22);
+    label_rect.top += ScaleByDpi(hwnd, 10);
+    DrawTextW(dc, L"Who moves first", -1, &label_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
     DrawButton(dc, layout.player_first, L"Player", state.player_first);
     DrawButton(dc, layout.ai_first, L"AI", !state.player_first);
 
-    label_rect = MakeCenteredRect(client, layout.easy.top - 20, 300, 20);
-    DrawTextW(dc, L"AI Difficulty", -1, &label_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    label_rect = layout.difficulty_card;
+    label_rect.bottom = label_rect.top + ScaleByDpi(hwnd, 22);
+    label_rect.top += ScaleByDpi(hwnd, 10);
+    DrawTextW(dc, L"AI Difficulty", -1, &label_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
     DrawButton(dc, layout.easy, L"Easy", state.difficulty == AiDifficulty::Easy);
     DrawButton(dc, layout.normal, L"Normal", state.difficulty == AiDifficulty::Normal);
     DrawButton(dc, layout.hard, L"Hard", state.difficulty == AiDifficulty::Hard);
 
+    label_rect = layout.action_card;
+    label_rect.bottom = label_rect.top + ScaleByDpi(hwnd, 22);
+    label_rect.top += ScaleByDpi(hwnd, 10);
+    DrawTextW(dc, L"Actions", -1, &label_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
     DrawButton(dc, layout.start, L"Start", false);
     DrawButton(dc, layout.quit, L"Quit", false);
+    SelectObject(dc, old_font);
+    DeleteObject(label_font);
 }
 
-void DrawGameOverOverlay(HDC dc, const RECT &client, const GameState &state) {
+void DrawGameOverOverlay(HDC dc, HWND hwnd, const RECT &client, const GameState &state) {
     RECT overlay = client;
     HBRUSH overlay_brush = CreateSolidBrush(RGB(245, 245, 245));
     FillRect(dc, &overlay, overlay_brush);
     DeleteObject(overlay_brush);
 
-    if (state.win_line) {
-        WinLine line = *state.win_line;
-        int start_cx = kMargin + line.start_x * kCellSize;
-        int start_cy = kMargin + line.start_y * kCellSize;
-        int end_x = line.start_x + line.dx * (line.length - 1);
-        int end_y = line.start_y + line.dy * (line.length - 1);
-        int end_cx = kMargin + end_x * kCellSize;
-        int end_cy = kMargin + end_y * kCellSize;
+    if (!state.win_cells.empty() && state.win_blink_on) {
+        POINT start = state.win_cells.front();
+        POINT end = state.win_cells.back();
+        int start_cx = kMargin + start.x * kCellSize;
+        int start_cy = kMargin + start.y * kCellSize;
+        int end_cx = kMargin + end.x * kCellSize;
+        int end_cy = kMargin + end.y * kCellSize;
 
         HPEN win_pen = CreatePen(PS_SOLID, 6, RGB(200, 60, 60));
         HPEN old_win_pen = static_cast<HPEN>(SelectObject(dc, win_pen));
@@ -300,23 +463,31 @@ void DrawGameOverOverlay(HDC dc, const RECT &client, const GameState &state) {
 
     const wchar_t *result_text = L"DRAW";
     if (state.winner == state.human_player) {
-        result_text = L"YOU WIN";
+        result_text = L"YOU WIN!";
     } else if (state.winner == state.ai_player) {
-        result_text = L"YOU LOSE";
+        result_text = L"YOU LOSE!";
     }
 
-    HFONT big_font = CreateFontW(48, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+    int panel_width = ScaleByDpi(hwnd, 420);
+    int panel_height = ScaleByDpi(hwnd, 240);
+    RECT panel = MakeCenteredRect(client, (client.top + client.bottom) / 2, panel_width, panel_height);
+    HBRUSH panel_brush = CreateSolidBrush(RGB(250, 250, 250));
+    FillRect(dc, &panel, panel_brush);
+    DeleteObject(panel_brush);
+    FrameRect(dc, &panel, static_cast<HBRUSH>(GetStockObject(GRAY_BRUSH)));
+
+    HFONT big_font = CreateFontW(ScaleByDpi(hwnd, 44), 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
                                  DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                                  CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
     HFONT old_font = static_cast<HFONT>(SelectObject(dc, big_font));
     SetBkMode(dc, TRANSPARENT);
     SetTextColor(dc, RGB(40, 40, 40));
-    RECT text_rect = MakeCenteredRect(client, (client.top + client.bottom) / 2 - 40, 400, 60);
+    RECT text_rect = MakeCenteredRect(client, panel.top + ScaleByDpi(hwnd, 40), panel_width - 40, ScaleByDpi(hwnd, 60));
     DrawTextW(dc, result_text, -1, &text_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     SelectObject(dc, old_font);
     DeleteObject(big_font);
 
-    GameOverLayout layout = BuildGameOverLayout(client);
+    GameOverLayout layout = BuildGameOverLayout(hwnd, client);
     DrawButton(dc, layout.play_again, L"Play Again", false);
     DrawButton(dc, layout.back_to_menu, L"Back to Menu", false);
 }
@@ -324,6 +495,39 @@ void DrawGameOverOverlay(HDC dc, const RECT &client, const GameState &state) {
 bool HitTest(const RECT &rect, int x, int y) {
     POINT pt{x, y};
     return PtInRect(&rect, pt) != 0;
+}
+
+std::vector<POINT> BuildWinCells(const WinLine &line) {
+    std::vector<POINT> cells;
+    cells.reserve(5);
+    for (int i = 0; i < 5; ++i) {
+        cells.push_back(POINT{line.start_x + line.dx * i, line.start_y + line.dy * i});
+    }
+    return cells;
+}
+
+void StartBlinkTimer(GameState &state, HWND hwnd) {
+    state.win_blink_on = true;
+    KillTimer(hwnd, kBlinkTimerId);
+    SetTimer(hwnd, kBlinkTimerId, kBlinkIntervalMs, nullptr);
+}
+
+void StartPulseTimer(GameState &state, HWND hwnd) {
+    state.pulse_frame = 0;
+    state.pulse_total = kPulseFrames;
+    KillTimer(hwnd, kPulseTimerId);
+    SetTimer(hwnd, kPulseTimerId, kPulseIntervalMs, nullptr);
+}
+
+void SetWinState(GameState &state, HWND hwnd, int winner, const std::optional<WinLine> &line) {
+    state.winner = winner;
+    state.win_line = line;
+    state.win_cells.clear();
+    if (line) {
+        state.win_cells = BuildWinCells(*line);
+        StartBlinkTimer(state, hwnd);
+    }
+    state.scene = Scene::GameOver;
 }
 
 void HandleUndo(GameState &state, HWND hwnd) {
@@ -346,6 +550,9 @@ void HandleUndo(GameState &state, HWND hwnd) {
 
     state.winner = GomokuGame::kEmpty;
     state.win_line.reset();
+    state.win_cells.clear();
+    state.win_blink_on = true;
+    KillTimer(hwnd, kBlinkTimerId);
     InvalidateRect(hwnd, nullptr, TRUE);
 }
 
@@ -359,10 +566,10 @@ static void DoAiMove(GameState &state, HWND hwnd) {
     }
     auto move = ComputeAiMove(state.game, state.ai_player, state.human_player, state.difficulty);
     if (state.game.placeStone(move.first, move.second, state.ai_player)) {
-        state.win_line = state.game.findWinningLine(move.first, move.second, state.ai_player);
-        if (state.win_line) {
-            state.winner = state.ai_player;
-            state.scene = Scene::GameOver;
+        StartPulseTimer(state, hwnd);
+        std::optional<WinLine> win_line = state.game.findWinningLine(move.first, move.second, state.ai_player);
+        if (win_line) {
+            SetWinState(state, hwnd, state.ai_player, win_line);
         } else if (state.game.isBoardFull()) {
             state.scene = Scene::GameOver;
         } else {
@@ -396,7 +603,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpara
             RECT client;
             GetClientRect(hwnd, &client);
             if (state->scene == Scene::Menu) {
-                MenuLayout layout = BuildMenuLayout(client);
+                MenuLayout layout = BuildMenuLayout(hwnd, client);
                 if (HitTest(layout.player_first, mouse_x, mouse_y)) {
                     state->player_first = true;
                 } else if (HitTest(layout.ai_first, mouse_x, mouse_y)) {
@@ -417,7 +624,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpara
                 return 0;
             }
             if (state->scene == Scene::GameOver) {
-                GameOverLayout layout = BuildGameOverLayout(client);
+                GameOverLayout layout = BuildGameOverLayout(hwnd, client);
                 if (HitTest(layout.play_again, mouse_x, mouse_y)) {
                     StartMatch(*state, hwnd);
                 } else if (HitTest(layout.back_to_menu, mouse_x, mouse_y)) {
@@ -441,10 +648,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpara
             if (!state->game.placeStone(col, row, state->human_player)) {
                 return 0;
             }
-            state->win_line = state->game.findWinningLine(col, row, state->human_player);
-            if (state->win_line) {
-                state->winner = state->human_player;
-                state->scene = Scene::GameOver;
+            StartPulseTimer(*state, hwnd);
+            std::optional<WinLine> win_line = state->game.findWinningLine(col, row, state->human_player);
+            if (win_line) {
+                SetWinState(*state, hwnd, state->human_player, win_line);
             } else if (state->game.isBoardFull()) {
                 state->scene = Scene::GameOver;
             } else {
@@ -456,12 +663,29 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpara
             return 0;
         }
         case WM_TIMER: {
-            if (!state || wparam != 1) {
+            if (!state) {
                 return 0;
             }
-            KillTimer(hwnd, 1);
-            DoAiMove(*state, hwnd);
-            InvalidateRect(hwnd, nullptr, FALSE);
+            if (wparam == kAiTimerId) {
+                KillTimer(hwnd, kAiTimerId);
+                DoAiMove(*state, hwnd);
+                InvalidateRect(hwnd, nullptr, FALSE);
+                return 0;
+            }
+            if (wparam == kBlinkTimerId) {
+                state->win_blink_on = !state->win_blink_on;
+                InvalidateRect(hwnd, nullptr, FALSE);
+                return 0;
+            }
+            if (wparam == kPulseTimerId) {
+                state->pulse_frame++;
+                if (state->pulse_frame >= state->pulse_total) {
+                    state->pulse_total = 0;
+                    KillTimer(hwnd, kPulseTimerId);
+                }
+                InvalidateRect(hwnd, nullptr, FALSE);
+                return 0;
+            }
             return 0;
         }
         case WM_KEYDOWN: {
@@ -494,11 +718,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpara
             RECT client;
             GetClientRect(hwnd, &client);
             if (state->scene == Scene::Menu) {
-                DrawMenu(dc, client, *state);
+                DrawMenu(dc, hwnd, client, *state);
             } else {
                 DrawBoardBase(dc, client, *state);
                 if (state->scene == Scene::GameOver) {
-                    DrawGameOverOverlay(dc, client, *state);
+                    DrawGameOverOverlay(dc, hwnd, client, *state);
                 }
             }
             EndPaint(hwnd, &ps);
@@ -526,8 +750,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_cmd) {
         return 0;
     }
 
-    int client_width = kMargin * 2 + BoardPixelSize();
-    int client_height = kMargin * 2 + BoardPixelSize() + kInfoHeight;
+    UINT dpi = GetDpiForSystem();
+    int client_width = ScaleByDpi(dpi, kWindowWidth);
+    int client_height = ScaleByDpi(dpi, kWindowHeight);
 
     RECT window_rect{0, 0, client_width, client_height};
     AdjustWindowRect(&window_rect, WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, FALSE);

@@ -27,11 +27,22 @@ jobs:
           if not exist dist mkdir dist
           copy /Y build\Release\gomoku.exe dist\gomoku.exe
 
+      - name: Package artifact
+        shell: powershell
+        run: |
+          Compress-Archive -Path dist\gomoku.exe -DestinationPath dist\gomoku-windows.zip -Force
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: gomoku-windows-exe
           path: dist\gomoku.exe
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: gomoku-windows-zip
+          path: dist\gomoku-windows.zip
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -48,3 +59,4 @@ jobs:
         with:
           files: |
             dist/gomoku-windows-exe/gomoku.exe
+            dist/gomoku-windows-zip/gomoku-windows.zip

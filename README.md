@@ -4,7 +4,7 @@ A lightweight Windows-only Gomoku game written in C++17 with a native Win32/GDI 
 
 ## Download & Run
 
-- Grab the latest `gomoku.exe` from **GitHub Releases**: https://github.com/<your-org-or-user>/Gomoku/releases
+- Grab the latest `gomoku.exe` (or zip) from **GitHub Releases**: https://github.com/<your-org-or-user>/Gomoku/releases
 - Double-click `gomoku.exe` to play.
 
 ## Fastest Run (Windows)
@@ -42,6 +42,14 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run.ps1
 - **ESC:** return to the menu.
 - **R:** restart the current match with the same settings.
 - **U:** undo (removes the last AI+human turn when possible).
+- **Game over:** use **Play Again** or **Back to Menu**.
+
+## Menu & Match Flow
+
+- Choose who moves first (Player or AI).
+- Select AI difficulty (Easy/Normal/Hard).
+- **Start** begins a match, **Quit** exits.
+- After a match ends, use **Play Again** or **Back to Menu**.
 
 ## Menu & Match Flow
 

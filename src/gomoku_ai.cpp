@@ -222,13 +222,14 @@ int EvaluateBoard(const GomokuGame &game, int ai_player, int human_player) {
     return score;
 }
 
-int Minimax(GomokuGame &game, int depth, bool maximizing, int ai_player, int human_player, int alpha, int beta) {
+int Minimax(GomokuGame &game, int depth, bool maximizing, int ai_player, int human_player, int alpha, int beta,
+            int candidate_limit) {
     if (depth == 0 || game.isBoardFull()) {
         return EvaluateBoard(game, ai_player, human_player);
     }
 
     int player = maximizing ? ai_player : human_player;
-    auto candidates = SelectTopCandidates(game, player, 8);
+    auto candidates = SelectTopCandidates(game, player, candidate_limit);
     if (candidates.empty()) {
         return EvaluateBoard(game, ai_player, human_player);
     }
@@ -243,7 +244,7 @@ int Minimax(GomokuGame &game, int depth, bool maximizing, int ai_player, int hum
             if (game.findWinningLine(move.first, move.second, player)) {
                 score = 1000000 + depth * 100;
             } else {
-                score = Minimax(game, depth - 1, false, ai_player, human_player, alpha, beta);
+                score = Minimax(game, depth - 1, false, ai_player, human_player, alpha, beta, candidate_limit);
             }
             game.undoLastMove();
             if (score > best) {
@@ -268,7 +269,7 @@ int Minimax(GomokuGame &game, int depth, bool maximizing, int ai_player, int hum
         if (game.findWinningLine(move.first, move.second, player)) {
             score = -1000000 - depth * 100;
         } else {
-            score = Minimax(game, depth - 1, true, ai_player, human_player, alpha, beta);
+            score = Minimax(game, depth - 1, true, ai_player, human_player, alpha, beta, candidate_limit);
         }
         game.undoLastMove();
         if (score < best) {
@@ -307,8 +308,9 @@ std::pair<int, int> ComputeAiMove(const GomokuGame &game, int ai_player, int hum
     }
 
     if (difficulty == AiDifficulty::Hard) {
+        const int candidate_limit = 14;
         GomokuGame copy = game;
-        auto top_moves = SelectTopCandidates(copy, ai_player, 8);
+        auto top_moves = SelectTopCandidates(copy, ai_player, candidate_limit);
         int best_score = std::numeric_limits<int>::min();
         std::pair<int, int> best_move = top_moves.front();
         for (const auto &move : top_moves) {
@@ -321,7 +323,8 @@ std::pair<int, int> ComputeAiMove(const GomokuGame &game, int ai_player, int hum
             } else {
                 score = Minimax(copy, 2, false, ai_player, human_player,
                                 std::numeric_limits<int>::min(),
-                                std::numeric_limits<int>::max());
+                                std::numeric_limits<int>::max(),
+                                candidate_limit);
             }
             copy.undoLastMove();
             if (score > best_score) {
